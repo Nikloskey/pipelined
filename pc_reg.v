@@ -1,18 +1,18 @@
 module pc_reg (
     input wire clk, 
     input wire rst,
-    input wire stall,         // ADDED: The brake pedal
+    input wire stall,
     input wire [31:0] pc_next,
-    output reg [31:0] pc      // CLEANED: Directly output the reg
+    output reg [31:0] pc
 );
     
     always @(posedge clk or posedge rst) begin
         if (rst) 
             pc <= 32'b0;
-        else if (stall)       // ADDED: If stalled, hold the current address
+        else if (stall)
             pc <= pc;
         else 
-            pc <= pc_next;    // Normal operation
+            pc <= pc_next;
     end
 
 endmodule

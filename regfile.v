@@ -12,28 +12,17 @@ module regfile (
     // The Memory Array: 32 elements, each 32 bits wide
     reg [31:0] rf [31:0];
 
-    // ==========================================
-    // 1. SYNCHRONOUS WRITE PORT
-    // ==========================================
-    // Writing only happens exactly on the rising edge of the clock.
+    // Write on rising clock edge (x0 is always 0)
     always @(posedge clk) begin
-        // The condition (rd != 5'b00000) strictly enforces the RISC-V rule 
-        // that register x0 is immutable and cannot be overwritten.
         if (we && (rd != 5'b00000)) begin
             rf[rd] <= write_data;
         end
     end
 
-    // ==========================================
-    // 2. ASYNCHRONOUS READ PORTS
-    // ==========================================
-    // Reading is combinational. The moment the instruction decoder changes
-    // rs1 or rs2, the output updates instantly so the ALU doesn't have to wait.
-    
+    // Combinational read
     assign rd1 = (rs1 == 5'b0) ? 32'b0 : 
                  ((rs1 == rd) && we) ? write_data : 
                  rf[rs1];
-
     assign rd2 = (rs2 == 5'b0) ? 32'b0 : 
                  ((rs2 == rd) && we) ? write_data : 
                  rf[rs2];

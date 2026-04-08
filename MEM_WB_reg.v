@@ -2,26 +2,15 @@ module MEM_WB_reg (
     input wire clk,
     input wire rst,
 
-    // --- DATAPATH INPUTS (From MEM) ---
     input wire [31:0] alu_result_in,
     input wire [31:0] dmem_data_in,
-    
-    // --- METADATA INPUTS ---
     input wire [4:0]  rd_addr_in,
-
-    // --- CONTROL INPUTS (Final Survivors) ---
     input wire reg_write_in,
     input wire mem_to_reg_in,
 
-    // ==========================================
-    // --- DATAPATH OUTPUTS (To WB Stage Mux/RegFile) ---
     output reg [31:0] alu_result_out,
     output reg [31:0] dmem_data_out,
-
-    // --- METADATA OUTPUTS ---
     output reg [4:0]  rd_addr_out,
-
-    // --- CONTROL OUTPUTS ---
     output reg reg_write_out,
     output reg mem_to_reg_out
 );

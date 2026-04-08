@@ -16,20 +16,16 @@ module forwarding_unit (
 );
 
     always @(*) begin
-        // Default: No hazard detected, read normally from the ID/EX wall
         forward_a = 2'b00;
         forward_b = 2'b00;
 
-        // 1. EX/MEM Hazard (Data is sitting right behind the ALU)
-        // This takes priority because it is the most recent instruction.
+        // EX/MEM forwarding (1 cycle old)
         if (mem_reg_write && (mem_rd != 5'b00000)) begin
             if (mem_rd == ex_rs1) forward_a = 2'b10;
             if (mem_rd == ex_rs2) forward_b = 2'b10;
         end
 
-        // 2. MEM/WB Hazard (Data has reached the end of the pipeline)
-        // We only forward from here if the EX/MEM stage isn't ALREADY forwarding it.
-        // (This protects against code like: add x1,x2,x3 -> add x1,x1,x4 -> add x5,x1,x1)
+        // MEM/WB forwarding (2 cycles old, only if not already forwarded)
         if (wb_reg_write && (wb_rd != 5'b00000)) begin
             if ((wb_rd == ex_rs1) && ~(mem_reg_write && (mem_rd != 5'b00000) && (mem_rd == ex_rs1))) begin
                 forward_a = 2'b01;

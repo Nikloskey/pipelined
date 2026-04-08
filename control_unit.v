@@ -16,8 +16,7 @@ module control_unit (
 );
 
     always @(*) begin
-        // Default all signals to 0 to prevent inferred latches 
-        // and accidental memory/register corruption.
+        // Default to 0 to prevent latches
         alu_src    = 1'b0;
         alu_op     = 2'b00;
         mem_read   = 1'b0;
@@ -27,38 +26,30 @@ module control_unit (
         mem_to_reg = 1'b0;
 
         case (opcode)
-            7'b0110011: begin // R-Type (add, sub, and, or)
+            7'b0110011: begin // R-Type: add, sub, and, or
                 reg_write = 1'b1;
-                alu_op    = 2'b10; // Tell ALU Control to look at funct3/7
+                alu_op    = 2'b10;
             end
-            
-            7'b0010011: begin // I-Type (addi, ori, slli)
-                alu_src   = 1'b1;  // Use Immediate instead of rs2
+            7'b0010011: begin // I-Type: addi, ori, slli
+                alu_src   = 1'b1;
                 reg_write = 1'b1;
-                alu_op    = 2'b10; // Custom code for I-Type math
+                alu_op    = 2'b10;
             end
-            
-            7'b0000011: begin // Load (lw)
-                alu_src    = 1'b1; // Add Immediate to rs1 for memory address
-                mem_read   = 1'b1; // Turn on SRAM read port
-                reg_write  = 1'b1; // Save SRAM data to register
-                mem_to_reg = 1'b1; // Flip final WB mux to memory output
-                alu_op     = 2'b00; // Force ALU to ADD
+            7'b0000011: begin // lw (load)
+                alu_src    = 1'b1;
+                mem_read   = 1'b1;
+                reg_write  = 1'b1;
+                mem_to_reg = 1'b1;
+                alu_op     = 2'b00;
             end
-            
-            7'b0100011: begin // Store (sw)
-                alu_src   = 1'b1; // Add Immediate to rs1 for memory address
-                mem_write = 1'b1; // Turn on SRAM write port
-                alu_op    = 2'b00; // Force ALU to ADD
+            7'b0100011: begin // sw (store)
+                alu_src   = 1'b1;
+                mem_write = 1'b1;
+                alu_op    = 2'b00;
             end
-            
-            7'b1100011: begin // Branch (beq)
-                branch = 1'b1; // Alert the branch AND gate
-                alu_op = 2'b01; // Force ALU to SUBTRACT (rs1 - rs2)
-            end
-            
-            default: begin
-                // If it's a NOP or unknown opcode, everything stays 0.
+            7'b1100011: begin // beq (branch)
+                branch = 1'b1;
+                alu_op = 2'b01;
             end
         endcase
     end

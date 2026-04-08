@@ -7,9 +7,7 @@ module hazard_detection_unit (
 );
 
     always @(*) begin
-        // Default: No stall
         stall = 1'b0;
-
         if (ex_mem_read && (ex_rd != 5'b0) && ((ex_rd == id_rs1) || (ex_rd == id_rs2))) begin
             stall = 1'b1;
         end
