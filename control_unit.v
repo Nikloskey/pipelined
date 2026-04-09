@@ -33,7 +33,7 @@ module control_unit (
             7'b0010011: begin // I-Type: addi, ori, slli
                 alu_src   = 1'b1;
                 reg_write = 1'b1;
-                alu_op    = 2'b10;
+                alu_op    = 2'b11;
             end
             7'b0000011: begin // lw (load)
                 alu_src    = 1'b1;

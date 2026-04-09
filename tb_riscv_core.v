@@ -25,7 +25,7 @@ module tb_riscv_core();
         rst = 1;
 
         #20 rst = 0;
-        #2000;
+        #4000;
 
         $display("Simulation Complete.");
         $finish;
@@ -36,11 +36,11 @@ module tb_riscv_core();
         if (!rst) begin
             if (uut.mem_write_ctrl) begin
                 $display("Time: %0t | [MEM] -> Wrote Data %0d to RAM Address 0x%0h", 
-                         $time, uut.mem_rs2_data, uut.mem_alu_result);
+                         $time, $signed(uut.mem_rs2_data), uut.mem_alu_result);
             end
             if (uut.wb_reg_write && uut.wb_rd_addr != 5'b0) begin
                 $display("Time: %0t | [WB]  -> Wrote Data %0d to Register x%0d", 
-                         $time, uut.wb_write_data, uut.wb_rd_addr);
+                         $time, $signed(uut.wb_write_data), uut.wb_rd_addr);
             end
         end
     end
