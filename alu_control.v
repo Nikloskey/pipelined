@@ -13,6 +13,7 @@ module alu_control (
                     4'b1000: alu_ctrl = 4'b0110; // sub
                     4'b0111: alu_ctrl = 4'b0000; // and
                     4'b0110: alu_ctrl = 4'b0001; // or
+                    4'b0010: alu_ctrl = 4'b0111; // slt
                     default: alu_ctrl = 4'b0000; // Default fallback
                 endcase
             end

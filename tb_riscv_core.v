@@ -25,7 +25,7 @@ module tb_riscv_core();
         rst = 1;
 
         #20 rst = 0;
-        #1000;
+        #2000;
 
         $display("Simulation Complete.");
         $finish;

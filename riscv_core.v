@@ -5,6 +5,7 @@
 `include "regfile.v"
 `include "imm_gen.v"
 `include "hazard_detection_unit.v"
+`include "id_forwarding_unit.v"
 `include "ID_EX_reg.v"
 `include "alu_control.v"
 `include "main_alu.v"
@@ -35,6 +36,10 @@ module riscv_core (
     wire [31:0] id_pc;
     wire [31:0] id_instr;
 
+    // EX Stage
+    wire [4:0]  ex_rd_addr;
+    wire        ex_reg_write, ex_mem_read;
+
     // MEM Stage
     wire [31:0] mem_alu_result, mem_rs2_data;
     wire [4:0]  mem_rd_addr;
@@ -52,6 +57,8 @@ module riscv_core (
     );
 
     imem instruction_memory (
+        .clk (clk),
+        .stall (if_stall),
         .a  (if_pc_current),
         .rd (if_instr)
     );
@@ -70,12 +77,28 @@ module riscv_core (
         .instr_out (id_instr)
     );
 
+    reg delayed_flush;
+    always @(posedge clk) begin
+        if (rst) 
+            delayed_flush <= 1'b0;
+        else 
+            delayed_flush <= if_id_flush; // Remember the flush for 1 cycle
+    end
+
+    wire [31:0] actual_id_instr;
+    assign actual_id_instr = (rst | delayed_flush) ? 32'h00000013 : if_instr;
+
     // ID Stage - extract fields
-    wire [6:0] id_opcode    = id_instr[6:0];
-    wire [4:0] id_rd_addr   = id_instr[11:7];
-    wire [4:0] id_rs1_addr  = id_instr[19:15];
-    wire [4:0] id_rs2_addr  = id_instr[24:20];
-    wire [3:0] id_alu_funct = {id_instr[30], id_instr[14:12]}; 
+    // wire [6:0] id_opcode    = id_instr[6:0];
+    // wire [4:0] id_rd_addr   = id_instr[11:7];
+    // wire [4:0] id_rs1_addr  = id_instr[19:15];
+    // wire [4:0] id_rs2_addr  = id_instr[24:20];
+    // wire [3:0] id_alu_funct = {id_instr[30], id_instr[14:12]}; 
+        wire [6:0] id_opcode    = actual_id_instr[6:0];
+    wire [4:0] id_rd_addr   = actual_id_instr[11:7];
+    wire [4:0] id_rs1_addr  = actual_id_instr[19:15];
+    wire [4:0] id_rs2_addr  = actual_id_instr[24:20];
+    wire [3:0] id_alu_funct = {actual_id_instr[30], actual_id_instr[14:12]}; 
 
     // WB Stubs
     wire        wb_reg_write;
@@ -114,7 +137,7 @@ module riscv_core (
     wire [31:0] id_imm;
     
     imm_gen immediate_generator (
-        .instr (id_instr),
+        .instr (actual_id_instr),
         .imm   (id_imm)
     );
 
@@ -122,14 +145,54 @@ module riscv_core (
         .id_rs1      (id_rs1_addr),
         .id_rs2      (id_rs2_addr),
         .ex_rd       (ex_rd_addr),
+        .mem_rd      (mem_rd_addr),
+        .id_branch    (id_branch),
         .ex_mem_read (ex_mem_read),
+        .ex_reg_write (ex_reg_write),
+        .mem_read_ctrl (mem_read_ctrl),
         .stall       (if_stall)
     );
 
+    wire [1:0] forward_branch_a;
+    wire [1:0] forward_branch_b;
+
+    id_forwarding_unit id_fwd (
+        .id_rs1           (id_rs1_addr),
+        .id_rs2           (id_rs2_addr),
+        .mem_rd           (mem_rd_addr),
+        .mem_reg_write    (mem_reg_write),
+        .wb_rd            (wb_rd_addr),
+        .wb_reg_write     (wb_reg_write),
+        .forward_branch_a (forward_branch_a),
+        .forward_branch_b (forward_branch_b)
+    );
+    
+    wire [31:0] branch_operand_a;
+    wire [31:0] branch_operand_b;
+
+    assign branch_operand_a = (forward_branch_a == 2'b10) ? mem_alu_result :
+                              (forward_branch_a == 2'b01) ? wb_write_data :
+                              id_rs1_data; // Default from RegFile
+
+    assign branch_operand_b = (forward_branch_b == 2'b10) ? mem_alu_result :
+                              (forward_branch_b == 2'b01) ? wb_write_data :
+                              id_rs2_data; // Default from RegFile
+
+    // Branch target calculation
+    wire [31:0] id_branch_target;
+    assign id_branch_target = id_pc + id_imm;
+
+    // Branch feedback to IF stage
+    assign pc_src = ~if_stall & id_branch & (branch_operand_a == branch_operand_b); // Simple BEQ condition
+    assign branch_target = id_branch_target;
+
+    // Flush control
+    assign if_id_flush = pc_src; 
+
     // ID/EX pipeline register
     wire [31:0] ex_pc, ex_rs1_data, ex_rs2_data, ex_imm;
-    wire [4:0]  ex_rs1_addr, ex_rs2_addr, ex_rd_addr;
-    wire        ex_alu_src, ex_mem_read, ex_mem_write, ex_branch, ex_reg_write, ex_mem_to_reg;
+    wire [4:0]  ex_rs1_addr, ex_rs2_addr;
+    wire        ex_alu_src, ex_branch, ex_mem_write, ex_mem_to_reg;
     wire [1:0]  ex_alu_op;
     wire [3:0]  ex_alu_funct;
 
@@ -225,17 +288,17 @@ module riscv_core (
         .zero     (ex_zero_flag)
     );
 
-    // Branch target calculation
-    wire [31:0] ex_branch_target;
-    assign ex_branch_target = ex_pc + ex_imm;
+    // // Branch target calculation
+    // wire [31:0] ex_branch_target;
+    // assign ex_branch_target = ex_pc + ex_imm;
 
-    // Branch feedback to IF stage
-    assign pc_src = ex_branch & ex_zero_flag;
-    assign branch_target = ex_branch_target;
+    // // Branch feedback to IF stage
+    // assign pc_src = ex_branch & ex_zero_flag;
+    // assign branch_target = ex_branch_target;
 
     // Flush control
-    assign if_id_flush = pc_src; 
-    assign id_ex_flush = pc_src | if_stall;
+    // assign if_id_flush = pc_src; 
+    assign id_ex_flush = if_stall;
 
     // EX/MEM pipeline register
     EX_MEM_reg ex_mem_wall (
@@ -290,6 +353,6 @@ module riscv_core (
     );
 
     // Write-back: select between ALU result or memory data
-    assign wb_write_data = (wb_mem_to_reg) ? wb_dmem_data : wb_alu_result;
+    assign wb_write_data = (wb_mem_to_reg) ? mem_read_data : wb_alu_result;
 
 endmodule
